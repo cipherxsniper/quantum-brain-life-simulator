@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "name": "qbls",
+  "version": "1.0.0",
+  "description": "Quantum Brain Loop Simulator",
+  "main": "run_sleep_phase7.mjs",
+  "scripts": {
+    "start": "node run_sleep_phase7.mjs"
+  }
+}
