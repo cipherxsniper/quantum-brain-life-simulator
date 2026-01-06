@@ -1,67 +1,39 @@
-// ~/qbls/src/visualization/DreamArtSimulator.js
-import chalk from 'chalk'; // for colors in terminal
+import { createCanvas } from 'canvas';
+import fs from 'fs';
+import path from 'path';
 
 export class DreamArtSimulator {
-    constructor() {
-        this.frames = [];
-    }
-
-    // Render the dream frames in sequence
-    async render(dreamFrames) {
-        console.log(chalk.green('\n🌙 Rendering your dream art...\n'));
-        this.frames = dreamFrames;
-
-        for (let i = 0; i < this.frames.length; i++) {
-            const frame = this.frames[i];
-            this.displayFrame(i + 1, frame);
-            await this.sleep(1000); // 1 second pause between frames
+    constructor(outputDir = './output/dream_frames') {
+        this.outputDir = outputDir;
+        if (!fs.existsSync(this.outputDir)) {
+            fs.mkdirSync(this.outputDir, { recursive: true });
         }
-        console.log(chalk.green('\n✨ Dream rendering complete!\n'));
     }
 
-    // Display a single frame with ASCII/emoji visualization
-    displayFrame(index, frame) {
-        const { sight, sound, reward } = frame;
+    async render(frames) {
+        for (let i = 0; i < frames.length; i++) {
+            const frame = frames[i];
+            const canvas = createCanvas(800, 600);
+            const ctx = canvas.getContext('2d');
 
-        let sightArt = '';
-        switch (sight.toLowerCase()) {
-            case 'tree':
-                sightArt = '🌳🌿🌳';
-                break;
-            case 'river':
-                sightArt = '🌊💧🌊';
-                break;
-            case 'mountain':
-                sightArt = '⛰️🏔️⛰️';
-                break;
-            default:
-                sightArt = '✨';
+            // Background color based on emotion/reward
+            const colorValue = Math.floor(frame.reward * 255);
+            ctx.fillStyle = `rgb(${colorValue}, ${255 - colorValue}, 150)`;
+            ctx.fillRect(0, 0, 800, 600);
+
+            // Text overlay for sight and sound
+            ctx.fillStyle = 'black';
+            ctx.font = '40px Sans';
+            ctx.fillText(`Scene: ${frame.sight}`, 50, 200);
+            ctx.fillText(`Sound: ${frame.sound}`, 50, 300);
+            ctx.fillText(`Emotion: ${frame.reward}`, 50, 400);
+
+            // Save to file
+            const filePath = path.join(this.outputDir, `frame_${i + 1}.png`);
+            const buffer = canvas.toBuffer('image/png');
+            fs.writeFileSync(filePath, buffer);
+
+            console.log(`Rendered art frame ${i + 1}: ${filePath}`);
         }
-
-        let soundEmoji = '';
-        switch (sound.toLowerCase()) {
-            case 'birds':
-                soundEmoji = '🐦🎶';
-                break;
-            case 'wind':
-                soundEmoji = '🌬️🍃';
-                break;
-            case 'waterfall':
-                soundEmoji = '💦🌊';
-                break;
-            default:
-                soundEmoji = '🎵';
-        }
-
-        const emotionLevel = Math.round(reward * 10); // scale reward to 0-10
-        const emotionBar = '❤️'.repeat(emotionLevel);
-
-        console.log(chalk.blue(`🎨 Frame ${index}:`));
-        console.log(chalk.yellow(`${sightArt} | ${soundEmoji} | Emotion: ${emotionBar}\n`));
     }
-
-    // Simple async sleep for animation timing
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-}
+}}
