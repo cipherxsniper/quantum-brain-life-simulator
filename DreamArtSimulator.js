@@ -1,40 +1,38 @@
-// ~/qbls/src/visualization/DreamArtSimulator.js
-import { createCanvas } from 'canvas';
-import fs from 'fs';
-import path from 'path';
-
 export class DreamArtSimulator {
     constructor() {
-        this.width = 800;
-        this.height = 600;
-        this.outputDir = path.resolve(process.env.HOME, 'qbls/output/dream_frames');
-        if (!fs.existsSync(this.outputDir)) {
-            fs.mkdirSync(this.outputDir, { recursive: true });
-        }
+        this.frames = [];
     }
 
+    /**
+     * Render an array of dream frames
+     * Each frame can contain:
+     *   - sight
+     *   - sound
+     *   - reward
+     *   - dreamified (boolean)
+     *   - layerColor (for conscious/subconscious)
+     *   - thought (English description)
+     */
     async render(frames) {
-        for (let i = 0; i < frames.length; i++) {
-            const frame = frames[i];
-            const canvas = createCanvas(this.width, this.height);
-            const ctx = canvas.getContext('2d');
+        console.log("Rendering dream art...");
+        frames.forEach((frame, index) => {
+            // Save frame internally
+            this.frames.push(frame);
 
-            // Background
-            ctx.fillStyle = '#87CEEB'; // sky blue
-            ctx.fillRect(0, 0, this.width, this.height);
+            // Create a visual description with thought
+            const frameText = `🎨 Frame ${index + 1}: ${frame.sight} scene with sound '${frame.sound}', emotion ${frame.reward}, layerColor ${frame.layerColor}\nThought: "${frame.thought}"`;
 
-            // Simple scene drawing based on "sight"
-            ctx.fillStyle = 'green';
-            if (frame.sight === 'tree') {
-                ctx.fillRect(350, 300, 100, 200); // trunk
-                ctx.beginPath();
-                ctx.arc(400, 250, 80, 0, 2 * Math.PI); // foliage
-                ctx.fill();
-            } else if (frame.sight === 'river') {
-                ctx.fillStyle = '#1E90FF';
-                ctx.fillRect(0, 400, this.width, 100); // river
-            } else if (frame.sight === 'mountain') {
-                ctx.fillStyle = '#A9A9A9';
+            // Output to console
+            console.log(frameText);
+        });
+
+        console.log(`Total frames rendered: ${this.frames.length}`);
+    }
+
+    clear() {
+        this.frames = [];
+    }
+}                ctx.fillStyle = '#A9A9A9';
                 ctx.beginPath();
                 ctx.moveTo(200, 500);
                 ctx.lineTo(400, 200);
