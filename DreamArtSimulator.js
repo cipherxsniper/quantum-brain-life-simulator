@@ -1,37 +1,32 @@
-import fs from 'fs';
-import path from 'path';
-import chalk from 'chalk'; // for colored console output
-
 export class DreamArtSimulator {
     constructor() {
         this.frames = [];
-        this.outputDir = './dream_art_frames';
-        if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir);
     }
 
-    async render(dreamFrames) {
-        this.frames = dreamFrames;
+    /**
+     * Render dream frames as simple terminal art
+     * @param {Array} dreamFrames - Array of frames with { sight, sound, emotion, tick }
+     */
+    render(dreamFrames) {
+        for (const frame of dreamFrames) {
+            this.frames.push(frame);
 
-        console.log(chalk.cyan('\n--- Rendering Dream Art ---\n'));
+            // Generate a simple terminal "art preview"
+            const width = 40;
+            const emotionBarLength = Math.floor(frame.emotion * width);
+            const emptyBarLength = width - emotionBarLength;
+            const emotionBar = '█'.repeat(emotionBarLength) + '░'.repeat(emptyBarLength);
 
-        for (let i = 0; i < dreamFrames.length; i++) {
-            const frame = dreamFrames[i];
-            const { sight, sound, reward, thought, layerColor } = frame;
-
-            // Console output for visualization
-            const colorFunc = chalk.hex(layerColor || '#FFFFFF');
-            console.log(colorFunc(`🎨 Frame ${i + 1}: ${sight} scene with sound '${sound}' and emotion ${reward}`));
-            console.log(colorFunc(`💭 Thought: ${thought}\n`));
-
-            // Save as JSON file for each frame
-            const fileName = path.join(this.outputDir, `frame_${i + 1}.json`);
-            fs.writeFileSync(fileName, JSON.stringify(frame, null, 2), 'utf-8');
+            console.log(`🎨 Tick ${frame.tick}: ${frame.sight} scene with sound '${frame.sound}'`);
+            console.log(`Emotion/Flow State: [${emotionBar}] ${frame.emotion.toFixed(2)}\n`);
         }
-
-        console.log(chalk.green(`All ${dreamFrames.length} frames rendered to console and saved in ${this.outputDir}`));
     }
 
     clear() {
         this.frames = [];
+    }
+
+    getAllFrames() {
+        return this.frames;
     }
 }
