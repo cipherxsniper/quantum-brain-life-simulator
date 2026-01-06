@@ -4,112 +4,96 @@ import { BrainLoop } from './src/core/BrainLoop.js';
 import { SleepCycle } from './src/sleep/SleepCycle.js';
 import { DreamArtSimulator } from './src/visualization/DreamArtSimulator.js';
 
-// Initialize brain, sleep, art simulator
+// Constants
+const SIMULATION_HOURS = 3;
+const TICKS_PER_HOUR = 60; // simulate 1 tick per minute
+const TOTAL_TICKS = SIMULATION_HOURS * TICKS_PER_HOUR;
+const OUTPUT_JSON = path.resolve('./dream_memory_live.json');
+
+// Initialize components
 const brain = new BrainLoop();
 const sleep = new SleepCycle(brain.state);
 const artSim = new DreamArtSimulator();
 
-// Simulation parameters
-const totalHours = 3;
-const ticksPerHour = 60; // 1 tick per simulated minute
-const totalTicks = totalHours * ticksPerHour;
-const realTimeDelay = 1000; // 1 second = 1 simulated minute
-
-// Output JSON path
-const outputPath = path.resolve('./dream_memory_live.json');
-fs.writeFileSync(outputPath, JSON.stringify({ brainHistory: [], dreamFrames: [], thoughts: [] }, null, 2), 'utf-8');
-
-// Flow state equation (Thomas Lee Harvey)
-function flowState(focus, emotion, sensory, memoryImpact) {
-  return Math.tanh(focus * emotion * (sensory + memoryImpact));
+// Helpers
+function randomThought() {
+    const thoughts = [
+        "Reflecting on memory patterns",
+        "Visualizing past experiences",
+        "Imagining future possibilities",
+        "Noticing patterns in nature",
+        "Feeling emotions deeply",
+        "Exploring subconscious imagery",
+        "Linking sensations to reward signals",
+        "Contemplating the flow of time"
+    ];
+    return thoughts[Math.floor(Math.random() * thoughts.length)];
 }
 
-// Chaos / Butterfly effect
-function chaos(delta = 0.05) {
-  return (Math.random() - 0.5) * delta;
+// Natural Flow State Equation Simulation
+function flowState(focus, reward, chaos) {
+    // Thomas Lee Harvey inspired: flow = (focus * reward) / (1 + chaos)
+    return (focus * reward) / (1 + chaos);
 }
 
-// Dynamic thought generator
-function generateThought(memory, tick) {
-  const memorySummary = memory.length
-    ? `Reflecting on ${memory.length} past experience(s)`
-    : 'A fresh mind';
-  const emotions = ['curiosity', 'wonder', 'awe', 'peace', 'confusion'];
-  const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-  return `${memorySummary}, at tick ${tick + 1} I feel ${emotion}.`;
+// Chaos / Butterfly effect simulation
+function chaosFactor() {
+    return Math.random(); // simple placeholder for environmental & neural chaos
 }
 
-// Async tick function
-async function runTick(tick) {
-  const input = {
-    sight: ['tree', 'river', 'mountain'][tick % 3],
-    sound: ['birds', 'wind', 'waterfall'][tick % 3],
-    reward: Math.random(),
-    thought: generateThought(brain.state.memoryStore.longTerm, tick)
-  };
+// Real-time simulation loop
+async function runSimulation() {
+    console.log(`Starting ${SIMULATION_HOURS}-hour QBLS simulation...`);
 
-  // Brain tick
-  const chaoticReward = input.reward + chaos(0.1);
-  brain.tick({ ...input, reward: chaoticReward });
+    for (let tick = 1; tick <= TOTAL_TICKS; tick++) {
+        // Generate sensory input
+        const sights = ['tree', 'river', 'mountain', 'sky', 'ocean', 'forest'];
+        const sounds = ['birds', 'wind', 'waterfall', 'rain', 'waves', 'leaves'];
+        const rewards = [0.3, 0.5, 0.7, 0.9, 1.0];
 
-  // Flow state
-  const currentFlow = flowState(brain.attention.focus, chaoticReward, 1, brain.state.memoryStore.longTerm.length);
+        const input = {
+            sight: sights[Math.floor(Math.random() * sights.length)],
+            sound: sounds[Math.floor(Math.random() * sounds.length)],
+            reward: rewards[Math.floor(Math.random() * rewards.length)]
+        };
 
-  // Subconscious mapping
-  const subconsciousLayer = brain.state.memoryStore.longTerm.map(f => ({
-    ...f,
-    dreamified: true
-  }));
+        // Tick brain
+        brain.tick(input);
 
-  // Tick record
-  const tickRecord = {
-    tick: tick + 1,
-    timestamp: new Date().toISOString(),
-    input,
-    chaoticReward,
-    flowState: currentFlow,
-    memorySnapshot: [...brain.state.memoryStore.longTerm],
-    subconsciousLayer,
-    consciousThought: input.thought
-  };
+        // Generate a thought in English
+        const thought = randomThought();
+        brain.state.memoryStore.longTerm.push({ thought, tick, language: 'English' });
 
-  // Update JSON
-  const currentData = JSON.parse(fs.readFileSync(outputPath, 'utf-8'));
-  currentData.brainHistory.push(tickRecord);
-  currentData.thoughts.push({ tick: tick + 1, timestamp: tickRecord.timestamp, thought: input.thought, language: 'English' });
-  fs.writeFileSync(outputPath, JSON.stringify(currentData, null, 2), 'utf-8');
+        // Apply flow state and chaos
+        const chaos = chaosFactor();
+        const focus = brain.attention.focus;
+        const emotion = flowState(focus, input.reward, chaos);
 
-  console.log(`Tick ${tick + 1}: Thought='${input.thought}' Flow=${currentFlow.toFixed(3)}`);
+        // Dreamify the frame
+        const dreamFrame = { ...input, dreamified: true, emotion, tick };
+        brain.state.memoryStore.longTerm.push(dreamFrame);
+
+        // Render art
+        artSim.render([dreamFrame]);
+
+        // Save JSON
+        fs.writeFileSync(OUTPUT_JSON, JSON.stringify(brain.state.memoryStore.longTerm, null, 2));
+
+        // Every 10 ticks, print status
+        if (tick % 10 === 0) {
+            console.log(`Tick ${tick}/${TOTAL_TICKS} complete. Long-term memory length: ${brain.state.memoryStore.longTerm.length}`);
+        }
+
+        // Optional: simulate 1 second delay to slow down loop for real-time monitoring
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Sleep phase at end of simulation
+    sleep.sleep(SIMULATION_HOURS);
+
+    console.log("Simulation complete!");
+    console.log("Long-term memory after sleep:", brain.state.memoryStore.longTerm);
 }
 
 // Run simulation
-(async () => {
-  console.log(`\n🚀 Starting 3-hour real-time brain simulation...`);
-
-  for (let tick = 0; tick < totalTicks; tick++) {
-    await runTick(tick);
-    await new Promise(res => setTimeout(res, realTimeDelay));
-  }
-
-  // Sleep consolidation
-  sleep.sleep(totalHours);
-
-  // Generate dream frames
-  const dreamFrames = brain.state.memoryStore.longTerm.map((frame, idx) => ({
-    ...frame,
-    dreamified: true,
-    language: 'English',
-    subconsciousLayerColor: ['#FF5733', '#33FF57', '#3357FF'][idx % 3]
-  }));
-
-  // Render art
-  await artSim.render(dreamFrames);
-
-  // Save final JSON
-  const finalData = JSON.parse(fs.readFileSync(outputPath, 'utf-8'));
-  finalData.dreamFrames = dreamFrames;
-  fs.writeFileSync(outputPath, JSON.stringify(finalData, null, 2), 'utf-8');
-
-  console.log(`\n✅ 3-hour simulation complete! Data saved to ${outputPath}`);
-  console.log('\nLong-term memory after sleep:', brain.state.memoryStore.longTerm);
-})();
+await runSimulation();
