@@ -4,7 +4,7 @@ import { DreamArtSimulator } from './src/visualization/DreamArtSimulator.js';
 
 const brain = new BrainLoop();
 const sleep = new SleepCycle(brain.state);
-const artSim = new DreamArtSimulator(`${process.env.HOME}/qbls/output/dream_frames`);
+const artSim = new DreamArtSimulator();
 
 brain.tick({ sight: 'tree', sound: 'birds', reward: 0.7 });
 brain.tick({ sight: 'river', sound: 'wind', reward: 0.5 });
@@ -21,7 +21,7 @@ const dreamFrames = brain.state.memoryStore.longTerm.map(frame => ({
 
 console.log('Generated dream frames:', dreamFrames);
 
-// Render the art frames as images
+// Render art frames to PNG
 await artSim.render(dreamFrames);
 
 console.log('Long-term memory after sleep:', brain.state.memoryStore.longTerm);
