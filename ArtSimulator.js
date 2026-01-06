@@ -1,46 +1,50 @@
-// ~/qbls/src/visualization/ArtSimulator.js
-import { createCanvas } from 'canvas';
+import { createCanvas, loadImage } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 
 export class ArtSimulator {
     constructor() {
         this.outputDir = path.join(process.env.HOME, 'qbls', 'art_output');
-        if (!fs.existsSync(this.outputDir)) {
-            fs.mkdirSync(this.outputDir, { recursive: true });
-        }
-        this.frameCount = 0;
+        if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir, { recursive: true });
     }
 
-    render(frame) {
-        this.frameCount++;
+    async renderFrame(frame, index) {
         const width = 800;
         const height = 600;
         const canvas = createCanvas(width, height);
         const ctx = canvas.getContext('2d');
 
-        // Background color based on emotion
-        const emotion = frame.reward || 0.5; // 0 = sad, 1 = happy
-        const colorValue = Math.floor(255 * emotion);
-        ctx.fillStyle = `rgb(${colorValue}, ${colorValue}, 255)`; // bluish based on emotion
+        // Background
+        ctx.fillStyle = '#222';
         ctx.fillRect(0, 0, width, height);
 
-        // Draw text of sight + sound
-        ctx.fillStyle = 'black';
-        ctx.font = 'bold 36px Arial';
-        ctx.fillText(`Sight: ${frame.sight}`, 50, 200);
-        ctx.fillText(`Sound: ${frame.sound}`, 50, 300);
-        ctx.fillText(`Emotion: ${emotion}`, 50, 400);
+        // Draw a simple visual based on dream frame
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 40px Sans';
+        ctx.fillText(frame.sight, 50, 100);
 
-        // Save the frame as PNG
-        const filename = path.join(this.outputDir, `frame_${this.frameCount}.png`);
+        ctx.font = '30px Sans';
+        ctx.fillText(`Sound: ${frame.sound}`, 50, 200);
+        ctx.fillText(`Emotion: ${frame.reward}`, 50, 300);
+
+        // Save image
+        const filePath = path.join(this.outputDir, `frame_${index + 1}.png`);
         const buffer = canvas.toBuffer('image/png');
-        fs.writeFileSync(filename, buffer);
+        fs.writeFileSync(filePath, buffer);
+        console.log(`Saved frame ${index + 1} to ${filePath}`);
+    }
 
-        console.log(`🎨 Frame ${this.frameCount} saved to ${filename}`);
+    async render(frames) {
+        for (let i = 0; i < frames.length; i++) {
+            await this.renderFrame(frames[i], i);
+        }
     }
 
     clear() {
-        this.frameCount = 0;
+        // Optional: delete previous frames
+        if (fs.existsSync(this.outputDir)) {
+            fs.readdirSync(this.outputDir).forEach(file => fs.unlinkSync(path.join(this.outputDir, file)));
+            console.log('Cleared old frames.');
+        }
     }
 }
