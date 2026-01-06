@@ -97,3 +97,9 @@ async function runSimulation() {
 
 // Run simulation
 await runSimulation();
+
+import fs from 'fs';
+const outputFile = './dream_memory_live.json';
+
+fs.writeFileSync(outputFile, JSON.stringify(brain.state.memoryStore.longTerm, null, 2));
+console.log(`All dream frames saved to ${outputFile}`);
