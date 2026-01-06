@@ -43,16 +43,3 @@ await artSim.render(dreamFrames);
 const memoryFile = './qbls_longterm_memory.json';
 fs.writeFileSync(memoryFile, JSON.stringify(brain.state.memoryStore.longTerm, null, 2), 'utf-8');
 console.log(`Long-term memory saved to ${memoryFile}`);
-// Render the art frames (visualization)
-await artSim.render(dreamFrames);
-
-// Save full brain memory to JSON file
-const outputFile = './qbls/brain_memory_3hours.json';
-fs.writeFileSync(outputFile, JSON.stringify({
-    timestamp: new Date().toISOString(),
-    memory: brain.state.memoryStore.longTerm,
-    layers: brain.state.layers
-}, null, 2));
-
-console.log(`Brain memory saved to ${outputFile}`);
-console.log('Long-term memory after sleep:', brain.state.memoryStore.longTerm);
