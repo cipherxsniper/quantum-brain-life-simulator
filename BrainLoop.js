@@ -1,30 +1,32 @@
-import { BrainLoop } from './src/core/BrainLoop.js';
-import { SleepCycle } from './src/sleep/SleepCycle.js';
-import { DreamArtSimulator } from './src/visualization/DreamArtSimulator.js';
+import { SensoryInput } from '../sensory/SensoryInput.js';
+import { Attention } from '../attention/Attention.js';
+import { DreamArtSimulator } from '../visualization/DreamArtSimulator.js';
 
-// Initialize brain and sleep
-const brain = new BrainLoop();
-const sleep = new SleepCycle(brain.state);
-const artSim = new DreamArtSimulator();
+export class BrainLoop {
+    constructor() {
+        this.sensory = new SensoryInput();
+        this.attention = new Attention();
+        this.visual = new DreamArtSimulator();
+        this.state = {
+            memoryStore: { longTerm: [] },
+            layers: { conscious: [], subconscious: [] }
+        };
+    }
 
-// Tick experiences into brain
-brain.tick({ sight: 'tree', sound: 'birds', reward: 0.7, layer: 'conscious' });
-brain.tick({ sight: 'river', sound: 'wind', reward: 0.5, layer: 'subconscious' });
-brain.tick({ sight: 'mountain', sound: 'waterfall', reward: 0.9, layer: 'conscious' });
+    tick(input) {
+        const sensed = this.sensory.sense(input);
+        this.attention.increase(0.5);
 
-// Sleep phase — consolidates memory
-sleep.sleep(3);
+        // Store in long-term memory
+        this.state.memoryStore.longTerm.push(sensed);
 
-// Generate dream frames based on conscious + subconscious layers
-const dreamFrames = brain.state.memoryStore.longTerm.map(frame => ({
-    ...frame,
-    dreamified: true,
-    layerColor: frame.layer === 'conscious' ? '#FFD700' : '#9370DB' // gold for conscious, purple for subconscious
-}));
+        // Separate into layers
+        if (sensed.layer === 'conscious') {
+            this.state.layers.conscious.push(sensed);
+        } else {
+            this.state.layers.subconscious.push(sensed);
+        }
 
-console.log('Generated dream frames:', dreamFrames);
-
-// Render art frames as images reflecting layers
-await artSim.render(dreamFrames);
-
-console.log('Long-term memory after sleep:', brain.state.memoryStore.longTerm);
+        this.visual.render(sensed);
+    }
+}
