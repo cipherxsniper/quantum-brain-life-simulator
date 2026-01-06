@@ -1,57 +1,37 @@
+import fs from 'fs';
+import path from 'path';
+import chalk from 'chalk'; // for colored console output
+
 export class DreamArtSimulator {
     constructor() {
         this.frames = [];
+        this.outputDir = './dream_art_frames';
+        if (!fs.existsSync(this.outputDir)) fs.mkdirSync(this.outputDir);
     }
 
-    /**
-     * Render an array of dream frames
-     * Each frame can contain:
-     *   - sight
-     *   - sound
-     *   - reward
-     *   - dreamified (boolean)
-     *   - layerColor (for conscious/subconscious)
-     *   - thought (English description)
-     */
-    async render(frames) {
-        console.log("Rendering dream art...");
-        frames.forEach((frame, index) => {
-            // Save frame internally
-            this.frames.push(frame);
+    async render(dreamFrames) {
+        this.frames = dreamFrames;
 
-            // Create a visual description with thought
-            const frameText = `🎨 Frame ${index + 1}: ${frame.sight} scene with sound '${frame.sound}', emotion ${frame.reward}, layerColor ${frame.layerColor}\nThought: "${frame.thought}"`;
+        console.log(chalk.cyan('\n--- Rendering Dream Art ---\n'));
 
-            // Output to console
-            console.log(frameText);
-        });
+        for (let i = 0; i < dreamFrames.length; i++) {
+            const frame = dreamFrames[i];
+            const { sight, sound, reward, thought, layerColor } = frame;
 
-        console.log(`Total frames rendered: ${this.frames.length}`);
+            // Console output for visualization
+            const colorFunc = chalk.hex(layerColor || '#FFFFFF');
+            console.log(colorFunc(`🎨 Frame ${i + 1}: ${sight} scene with sound '${sound}' and emotion ${reward}`));
+            console.log(colorFunc(`💭 Thought: ${thought}\n`));
+
+            // Save as JSON file for each frame
+            const fileName = path.join(this.outputDir, `frame_${i + 1}.json`);
+            fs.writeFileSync(fileName, JSON.stringify(frame, null, 2), 'utf-8');
+        }
+
+        console.log(chalk.green(`All ${dreamFrames.length} frames rendered to console and saved in ${this.outputDir}`));
     }
 
     clear() {
         this.frames = [];
-    }
-}                ctx.fillStyle = '#A9A9A9';
-                ctx.beginPath();
-                ctx.moveTo(200, 500);
-                ctx.lineTo(400, 200);
-                ctx.lineTo(600, 500);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Add simple text for sound/emotion
-            ctx.fillStyle = 'black';
-            ctx.font = '24px Arial';
-            ctx.fillText(`Sound: ${frame.sound}`, 50, 50);
-            ctx.fillText(`Emotion: ${frame.reward}`, 50, 90);
-
-            // Save as PNG
-            const buffer = canvas.toBuffer('image/png');
-            const filePath = path.join(this.outputDir, `frame_${i + 1}.png`);
-            fs.writeFileSync(filePath, buffer);
-            console.log(`Saved dream frame ${i + 1}: ${filePath}`);
-        }
     }
 }
