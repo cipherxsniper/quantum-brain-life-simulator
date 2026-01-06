@@ -1,7 +1,6 @@
 import { BrainLoop } from './src/core/BrainLoop.js';
 import { SleepCycle } from './src/sleep/SleepCycle.js';
 import { DreamArtSimulator } from './src/visualization/DreamArtSimulator.js';
-
 // Helper to simulate async rendering (like generating art per frame)
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
