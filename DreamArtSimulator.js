@@ -1,10 +1,13 @@
+// ~/qbls/src/visualization/DreamArtSimulator.js
 import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 
 export class DreamArtSimulator {
-    constructor(outputDir = './output/dream_frames') {
-        this.outputDir = outputDir;
+    constructor() {
+        this.width = 800;
+        this.height = 600;
+        this.outputDir = path.resolve(process.env.HOME, 'qbls/output/dream_frames');
         if (!fs.existsSync(this.outputDir)) {
             fs.mkdirSync(this.outputDir, { recursive: true });
         }
@@ -13,27 +16,44 @@ export class DreamArtSimulator {
     async render(frames) {
         for (let i = 0; i < frames.length; i++) {
             const frame = frames[i];
-            const canvas = createCanvas(800, 600);
+            const canvas = createCanvas(this.width, this.height);
             const ctx = canvas.getContext('2d');
 
-            // Background color based on emotion/reward
-            const colorValue = Math.floor(frame.reward * 255);
-            ctx.fillStyle = `rgb(${colorValue}, ${255 - colorValue}, 150)`;
-            ctx.fillRect(0, 0, 800, 600);
+            // Background
+            ctx.fillStyle = '#87CEEB'; // sky blue
+            ctx.fillRect(0, 0, this.width, this.height);
 
-            // Text overlay for sight and sound
+            // Simple scene drawing based on "sight"
+            ctx.fillStyle = 'green';
+            if (frame.sight === 'tree') {
+                ctx.fillRect(350, 300, 100, 200); // trunk
+                ctx.beginPath();
+                ctx.arc(400, 250, 80, 0, 2 * Math.PI); // foliage
+                ctx.fill();
+            } else if (frame.sight === 'river') {
+                ctx.fillStyle = '#1E90FF';
+                ctx.fillRect(0, 400, this.width, 100); // river
+            } else if (frame.sight === 'mountain') {
+                ctx.fillStyle = '#A9A9A9';
+                ctx.beginPath();
+                ctx.moveTo(200, 500);
+                ctx.lineTo(400, 200);
+                ctx.lineTo(600, 500);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Add simple text for sound/emotion
             ctx.fillStyle = 'black';
-            ctx.font = '40px Sans';
-            ctx.fillText(`Scene: ${frame.sight}`, 50, 200);
-            ctx.fillText(`Sound: ${frame.sound}`, 50, 300);
-            ctx.fillText(`Emotion: ${frame.reward}`, 50, 400);
+            ctx.font = '24px Arial';
+            ctx.fillText(`Sound: ${frame.sound}`, 50, 50);
+            ctx.fillText(`Emotion: ${frame.reward}`, 50, 90);
 
-            // Save to file
-            const filePath = path.join(this.outputDir, `frame_${i + 1}.png`);
+            // Save as PNG
             const buffer = canvas.toBuffer('image/png');
+            const filePath = path.join(this.outputDir, `frame_${i + 1}.png`);
             fs.writeFileSync(filePath, buffer);
-
-            console.log(`Rendered art frame ${i + 1}: ${filePath}`);
+            console.log(`Saved dream frame ${i + 1}: ${filePath}`);
         }
     }
-}}
+}
