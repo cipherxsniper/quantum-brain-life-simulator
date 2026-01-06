@@ -1,7 +1,6 @@
 import { BrainLoop } from './src/core/BrainLoop.js';
 import { SleepCycle } from './src/sleep/SleepCycle.js';
-import { ArtSimulator } from './src/visualization/ArtSimulator.js';
-
+import { Visualize } from './src/visualization/ArtSimulator.js';
 const brain = new BrainLoop();
 const sleep = new SleepCycle(brain.state);
 const artSim = new ArtSimulator();
