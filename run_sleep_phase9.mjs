@@ -1,158 +1,88 @@
-#!/usr/bin/env node
+import fs from 'fs';
+import crypto from 'crypto';
 
-/**
- * QBLs – Phase 9
- * Entropy + Novelty Decay + Memory Penalties
- * Thomas Lee Harvey (author / architect)
- *
- * Simulation of symbolic cognition with
- * self-regulation, entropy pressure, and memory shaping
- */
-
-import fs from "fs";
-import path from "path";
-
-// ---------------- CONFIG ----------------
-
-const RUNTIME_HOURS = 3;
-const TICK_INTERVAL_MS = 1000; // 1 second
-const TOTAL_TICKS = RUNTIME_HOURS * 60 * 60;
-
-const RECENT_WINDOW = 50;
-const MEMORY_PENALTY_STRENGTH = 0.35;
-
-const ENTROPY_DECAY = 0.9995;
-const ENTROPY_MIN = 0.25;
-
-// ---------------- SYMBOL SPACE ----------------
-
-const SIGHTS = [
-  "tree", "river", "mountain", "sky", "shadow", "light"
-];
-
-const SOUNDS = [
-  "birds", "wind", "waterfall", "echo", "silence"
-];
-
-const THOUGHTS = [
-  "Memory bends time",
-  "I am observing myself",
-  "Calm exists beneath chaos",
-  "Patterns repeat quietly",
-  "Meaning emerges naturally"
-];
-
-// ---------------- STATE ----------------
-
-let tick = 0;
-let entropy = 1.0;
-
-const recentPercepts = [];
-const memoryCounts = new Map();
-
-// ---------------- LOGGING ----------------
-
-const outDir = path.resolve("./output");
-const logPath = path.join(outDir, "brain_log.jsonl");
-
-if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(logPath, "");
-
-// ---------------- UTILS ----------------
-
-function rand(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function perceptKey(p) {
-  return `${p.sight}|${p.sound}|${p.thought}`;
-}
-
-function noveltyScore(key) {
-  const recentCount = recentPercepts.filter(k => k === key).length;
-  return 1 / (1 + recentCount);
-}
-
-function memoryPenalty(key) {
-  const count = memoryCounts.get(key) || 0;
-  return Math.exp(-MEMORY_PENALTY_STRENGTH * count);
-}
-
-function weightedChoice(candidates) {
-  const total = candidates.reduce((s, c) => s + c.weight, 0);
-  let r = Math.random() * total;
-  for (const c of candidates) {
-    r -= c.weight;
-    if (r <= 0) return c;
-  }
-  return candidates[candidates.length - 1];
-}
-
-// ---------------- CORE LOOP ----------------
-
-function step() {
-  tick++;
-
-  const candidates = [];
-
-  for (const sight of SIGHTS) {
-    for (const sound of SOUNDS) {
-      for (const thought of THOUGHTS) {
-        const percept = { sight, sound, thought };
-        const key = perceptKey(percept);
-
-        const novelty = noveltyScore(key);
-        const penalty = memoryPenalty(key);
-
-        const weight =
-          novelty *
-          penalty *
-          entropy;
-
-        candidates.push({ ...percept, key, weight });
-      }
+class SelfAwareAgent {
+    constructor(memorySize = 2048) {
+        this.state = {energy: 50, position: [0,0]};
+        this.memory = [];                    // Full reflection memory
+        this.memorySize = memorySize;        // Max memory length
+        this.vocab = new Map();              // Dynamic evolving vocabulary
+        this.noveltyDecay = 512;             // Novelty decay factor
+        this.thoughtLog = [];                 // Full self-aware thought log
     }
-  }
 
-  const chosen = weightedChoice(candidates);
+    // Generate a novel word/phrase for evolving vocabulary
+    evolveVocabulary(base = '') {
+        const hash = crypto.createHash('sha256');
+        hash.update(base + Date.now() + Math.random());
+        const word = hash.digest('hex').slice(0, 8);
+        if (!this.vocab.has(word)) this.vocab.set(word, {count:0});
+        return word;
+    }
 
-  // Update state
-  recentPercepts.push(chosen.key);
-  if (recentPercepts.length > RECENT_WINDOW) recentPercepts.shift();
+    // Observe environment (can be extended for real simulation)
+    observe(world = {}) {
+        const nearby = ['goal','obstacle','empty'][Math.floor(Math.random()*3)];
+        const distance = Math.floor(Math.random()*10)+1;
+        return {nearby, distance_to_goal: distance};
+    }
 
-  memoryCounts.set(
-    chosen.key,
-    (memoryCounts.get(chosen.key) || 0) + 1
-  );
+    // Self-aware thought processor
+    think(statement) {
+        const weight = Math.random() * Math.exp(-this.memory.length / this.noveltyDecay);
+        const evolvedWord = this.evolveVocabulary(statement);
+        const thought = {
+            statement,
+            novelty: weight,
+            self_note: `I notice that I am noticing: ${statement}`,
+            evolved_word: evolvedWord
+        };
+        this.memory.push(thought);
+        this.memory = this.memory.slice(-this.memorySize); // enforce memory cap
+        this.thoughtLog.push(thought);
+        return thought;
+    }
 
-  entropy = Math.max(ENTROPY_MIN, entropy * ENTROPY_DECAY);
+    // Reflect on current state
+    reflect() {
+        const energy = this.state.energy;
+        const reflection = `Energy level ${energy}, adapting from memory length ${this.memory.length}`;
+        return this.think(reflection);
+    }
 
-  const record = {
-    tick,
-    sight: chosen.sight,
-    sound: chosen.sound,
-    thought: chosen.thought,
-    reward: 1,
-    entropy: Number(entropy.toFixed(4))
-  };
+    // Compute reward from signal
+    reward(signal = {}) {
+        const r = (signal.success||0)*10 - (signal.penalty||0);
+        return r;
+    }
 
-  fs.appendFileSync(logPath, JSON.stringify(record) + "\n");
+    // Evolve agent state based on observations, reflection, and reward
+    evolve(observation, rewardValue) {
+        // Position adapts randomly, biased by goal proximity
+        const newPos = [...this.state.position];
+        if (observation.nearby === 'goal') newPos[0] += 1;
+        
+        // Energy adapts based on reward + novelty in thought
+        const noveltyImpact = this.thoughtLog.reduce((sum,t) => sum + t.novelty, 0)/Math.max(1,this.thoughtLog.length);
+        let newEnergy = this.state.energy + Math.round(0.1*rewardValue + noveltyImpact*5);
+        newEnergy = Math.min(100, Math.max(0, newEnergy));
 
-  console.log("🧠", record);
+        this.state = {position: newPos, energy: newEnergy};
+    }
 
-  if (tick % 60 === 0) {
-    console.log("🌙 Dream phase");
-  }
+    // Main update loop
+    update(world = {}, signal = {}) {
+        const obs = this.observe(world);
+        const reflection = this.reflect();
+        const rewardVal = this.reward(signal);
+        this.evolve(obs, rewardVal);
+        return {...this.state, lastThought: reflection};
+    }
 
-  if (tick >= TOTAL_TICKS) {
-    console.log("✅ Phase 9 complete");
-    process.exit(0);
-  }
+    // Export thought log for persistence or inspection
+    exportThoughtLog(path = './thought_log.json') {
+        fs.writeFileSync(path, JSON.stringify(this.thoughtLog, null, 2));
+    }
 }
 
-// ---------------- RUN ----------------
-
-console.log("🟢 Phase 9 starting");
-console.log(`⏱ Runtime: ${RUNTIME_HOURS} hours`);
-
-setInterval(step, TICK_INTERVAL_MS);
+export default SelfAwareAgent;
