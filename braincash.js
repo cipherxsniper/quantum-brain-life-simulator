@@ -1,28 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * BrainCash.js – Terminal CashApp Simulator (Educational Only)
- * -------------------------------------------------------------
+ * Terminal → CashApp Transaction Simulator (Educational Only)
+ * ----------------------------------------------------------
  * Features:
  * - Append-only ledger
- * - Idempotency support
- * - Transaction state machine
  * - Derived balances
- * - Simulated network delay
- * - CLI input support
+ * - Transaction state machine
+ * - Idempotency support
+ * - Cash App link reference
+ * - NO reversals
  */
 
-import fs from "fs";
-import crypto from "crypto";
+const fs = require("fs");
+const crypto = require("crypto");
 
-// ---------- Files ----------
 const LEDGER_FILE = "./ledger.json";
 const IDEMPOTENCY_FILE = "./idempotency.json";
 
-// ---------- Helpers ----------
 const now = () => new Date().toISOString();
 const uuid = () => crypto.randomUUID();
 
+/* ---------------- HELPERS ---------------- */
 function load(file, fallback = []) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -43,12 +42,12 @@ function deriveBalances(ledger) {
   return balances;
 }
 
-// ---------- Transaction States ----------
+/* ---------------- PAYMENT FLOW ---------------- */
 const STATES = {
   CREATED: "created",
   AUTHORIZED: "authorized",
   PENDING: "pending",
-  COMPLETED: "completed"
+  COMPLETED: "completed",
 };
 
 function assertTransition(from, to) {
@@ -56,14 +55,13 @@ function assertTransition(from, to) {
     created: ["authorized"],
     authorized: ["pending"],
     pending: ["completed"],
-    completed: []
+    completed: [],
   };
   if (!allowed[from]?.includes(to)) {
-    throw new Error(`Invalid state transition ${from} → ${to}`);
+    throw new Error(`Invalid transition ${from} → ${to}`);
   }
 }
 
-// ---------- Transaction Logic ----------
 function createTransaction({ from, to, amount, idemKey }) {
   const idempotencyMap = load(IDEMPOTENCY_FILE, {});
   if (idemKey && idempotencyMap[idemKey]) {
@@ -77,7 +75,8 @@ function createTransaction({ from, to, amount, idemKey }) {
     to,
     amount,
     state: STATES.CREATED,
-    timeline: [{ state: STATES.CREATED, at: now() }]
+    timeline: [{ state: STATES.CREATED, at: now() }],
+    cashAppLink: `https://cash.app/${to.replace("$", "")}`,
   };
 
   if (idemKey) {
@@ -88,21 +87,14 @@ function createTransaction({ from, to, amount, idemKey }) {
   return tx;
 }
 
-async function processTransaction(tx) {
-  // simulate network delay
-  await new Promise((r) => setTimeout(r, 500));
-
+function processTransaction(tx) {
   assertTransition(tx.state, STATES.AUTHORIZED);
   tx.state = STATES.AUTHORIZED;
   tx.timeline.push({ state: STATES.AUTHORIZED, at: now() });
 
-  await new Promise((r) => setTimeout(r, 500));
-
   assertTransition(tx.state, STATES.PENDING);
   tx.state = STATES.PENDING;
   tx.timeline.push({ state: STATES.PENDING, at: now() });
-
-  await new Promise((r) => setTimeout(r, 500));
 
   assertTransition(tx.state, STATES.COMPLETED);
   tx.state = STATES.COMPLETED;
@@ -111,18 +103,17 @@ async function processTransaction(tx) {
   return tx;
 }
 
-// ---------- Run ----------
-async function main() {
-  const args = process.argv.slice(2);
-  const from = args[0] || "$ThomasHarvey23";
-  const to = args[1] || "$ThomasHarvey2";
-  const amount = Number(args[2] || 5000);
-  const idemKey = args[3]; // optional
+/* ---------------- RUN ---------------- */
+(function run() {
+  const from = "$ThomasHarvey23";
+  const to = "$ThomasHarvey2";
+  const amount = 5000; // fixed as requested
+  const idemKey = undefined; // optional idempotency
 
   const ledger = load(LEDGER_FILE, []);
 
   let tx = createTransaction({ from, to, amount, idemKey });
-  tx = await processTransaction(tx);
+  tx = processTransaction(tx);
 
   ledger.push(tx);
   save(LEDGER_FILE, ledger);
@@ -132,6 +123,6 @@ async function main() {
 
   console.log("\n💰 Derived balances:");
   console.log(deriveBalances(ledger));
-}
 
-main();
+  console.log(`\n🔗 Cash App link for recipient: ${tx.cashAppLink}`);
+})();
