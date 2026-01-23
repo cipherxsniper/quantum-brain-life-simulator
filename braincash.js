@@ -1,87 +1,137 @@
 #!/usr/bin/env node
 
 /**
- * Terminal → CashApp Transaction Simulator
- * Each run:
- * 1. Creates a transaction
- * 2. Simulates processing
- * 3. Writes it to transactions.json
+ * Terminal → CashApp Transaction Simulator (Educational Only)
+ * ----------------------------------------------------------
+ * Features:
+ * - Append-only ledger
+ * - Derived balances
+ * - Transaction state machine
+ * - Risk threshold / automatic reversals
+ * - Idempotency key support
  */
 
 const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 
-const DATA_FILE = path.join(__dirname, "transactions.json");
+const LEDGER_FILE = "./ledger.json";
+const IDEMPOTENCY_FILE = "./idempotency.json";
 
-/* ---------- helpers ---------- */
+const now = () => new Date().toISOString();
+const uuid = () => crypto.randomUUID();
 
-function nowISO() {
-  return new Date().toISOString();
+/* ---------------- HELPERS ---------------- */
+function load(file, fallback = []) {
+  if (!fs.existsSync(file)) return fallback;
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function generateTxId() {
-  return "tx_" + crypto.randomUUID().slice(0, 8);
+function save(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-function loadTransactions() {
-  if (!fs.existsSync(DATA_FILE)) return [];
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+function deriveBalances(ledger) {
+  const balances = {};
+  for (const tx of ledger) {
+    if (tx.state === "completed") {
+      balances[tx.from] = (balances[tx.from] || 0) - tx.amount;
+      balances[tx.to] = (balances[tx.to] || 0) + tx.amount;
+    }
+    if (tx.state === "reversed") {
+      balances[tx.from] = (balances[tx.from] || 0) + tx.amount;
+      balances[tx.to] = (balances[tx.to] || 0) - tx.amount;
+    }
+  }
+  return balances;
 }
 
-function saveTransactions(txs) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(txs, null, 2));
+/* ---------------- PAYMENT FLOW ---------------- */
+const STATES = {
+  CREATED: "created",
+  AUTHORIZED: "authorized",
+  PENDING: "pending",
+  COMPLETED: "completed",
+  REVERSED: "reversed"
+};
+
+function assertTransition(from, to) {
+  const allowed = {
+    created: ["authorized"],
+    authorized: ["pending", "reversed"],
+    pending: ["completed", "reversed"],
+    completed: [],
+    reversed: []
+  };
+  if (!allowed[from]?.includes(to)) {
+    throw new Error(`Invalid transition ${from} → ${to}`);
+  }
 }
 
-function simulateStatus() {
-  const outcomes = ["completed", "failed"];
-  return outcomes[Math.floor(Math.random() * outcomes.length)];
-}
+function createTransaction({ from, to, amount, idemKey }) {
+  const idempotencyMap = load(IDEMPOTENCY_FILE, {});
+  if (idemKey && idempotencyMap[idemKey]) {
+    console.log("♻️ Idempotent transaction detected");
+    return idempotencyMap[idemKey];
+  }
 
-/* ---------- main transaction logic ---------- */
-
-function createTransaction({
-  from = "terminal_user",
-  to = "cashapp_user",
-  amount = 25.50
-}) {
-  return {
-    id: generateTxId(),
+  const tx = {
+    id: "tx_" + uuid().slice(0, 8),
     from,
     to,
     amount,
-    status: "pending",
-    timestamp: nowISO()
+    state: STATES.CREATED,
+    timeline: [{ state: STATES.CREATED, at: now() }]
   };
+
+  if (idemKey) {
+    idempotencyMap[idemKey] = tx;
+    save(IDEMPOTENCY_FILE, idempotencyMap);
+  }
+
+  return tx;
 }
 
 function processTransaction(tx) {
-  // simulate network / payment delay
-  const finalStatus = simulateStatus();
+  assertTransition(tx.state, STATES.AUTHORIZED);
+  tx.state = STATES.AUTHORIZED;
+  tx.timeline.push({ state: STATES.AUTHORIZED, at: now() });
 
-  return {
-    ...tx,
-    status: finalStatus,
-    processed_at: nowISO()
-  };
+  assertTransition(tx.state, STATES.PENDING);
+  tx.state = STATES.PENDING;
+  tx.timeline.push({ state: STATES.PENDING, at: now() });
+
+  // Risk logic: amounts over 3000 get automatically reversed
+  if (tx.amount > 3000) {
+    assertTransition(tx.state, STATES.REVERSED);
+    tx.state = STATES.REVERSED;
+    tx.timeline.push({ state: STATES.REVERSED, reason: "risk_threshold_exceeded", at: now() });
+  } else {
+    assertTransition(tx.state, STATES.COMPLETED);
+    tx.state = STATES.COMPLETED;
+    tx.timeline.push({ state: STATES.COMPLETED, at: now() });
+  }
+
+  return tx;
 }
 
-/* ---------- run ---------- */
-
+/* ---------------- RUN ---------------- */
 (function run() {
-  const tx = createTransaction({
-    from: process.argv[2] || "terminal_user",
-    to: process.argv[3] || "cashapp_user",
-    amount: Number(process.argv[4]) || 25.50
-  });
+  const from = "$ThomasHarvey23";
+  const to = "$ThomasHarvey2";
+  const amount = 5000; // fixed as requested
+  const idemKey = undefined; // optional idempotency
 
-  console.log("Initiating transaction:", tx);
+  const ledger = load(LEDGER_FILE, []);
 
-  const completedTx = processTransaction(tx);
+  let tx = createTransaction({ from, to, amount, idemKey });
+  tx = processTransaction(tx);
 
-  const transactions = loadTransactions();
-  transactions.push(completedTx);
-  saveTransactions(transactions);
+  ledger.push(tx);
+  save(LEDGER_FILE, ledger);
 
-  console.log("Transaction recorded:", completedTx);
+  console.log("📲 Transaction processed:");
+  console.log(tx);
+
+  console.log("\n💰 Derived balances:");
+  console.log(deriveBalances(ledger));
 })();
