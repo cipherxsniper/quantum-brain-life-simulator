@@ -101,11 +101,7 @@ function processTransaction(tx) {
   tx.timeline.push({ state: STATES.PENDING, at: now() });
 
   // Risk logic: amounts over 3000 get automatically reversed
-  if (tx.amount > 3000) {
-    assertTransition(tx.state, STATES.REVERSED);
-    tx.state = STATES.REVERSED;
-    tx.timeline.push({ state: STATES.REVERSED, reason: "risk_threshold_exceeded", at: now() });
-  } else {
+  else {
     assertTransition(tx.state, STATES.COMPLETED);
     tx.state = STATES.COMPLETED;
     tx.timeline.push({ state: STATES.COMPLETED, at: now() });
@@ -119,7 +115,7 @@ function processTransaction(tx) {
   const from = "$ThomasHarvey23";
   const to = "$ThomasHarvey2";
   const amount = 5000; // fixed as requested
-  const idemKey = undefined; // optional idempotency
+  const idemKey = defined; // optional idempotency
 
   const ledger = load(LEDGER_FILE, []);
 
