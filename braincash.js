@@ -1,26 +1,28 @@
 #!/usr/bin/env node
 
 /**
- * Terminal → CashApp Transaction Simulator (Educational Only)
- * ----------------------------------------------------------
+ * BrainCash.js – Terminal CashApp Simulator (Educational Only)
+ * -------------------------------------------------------------
  * Features:
  * - Append-only ledger
- * - Derived balances
+ * - Idempotency support
  * - Transaction state machine
- * - Risk threshold / automatic reversals
- * - Idempotency key support
+ * - Derived balances
+ * - Simulated network delay
+ * - CLI input support
  */
 
-const fs = require("fs");
-const crypto = require("crypto");
+import fs from "fs";
+import crypto from "crypto";
 
+// ---------- Files ----------
 const LEDGER_FILE = "./ledger.json";
 const IDEMPOTENCY_FILE = "./idempotency.json";
 
+// ---------- Helpers ----------
 const now = () => new Date().toISOString();
 const uuid = () => crypto.randomUUID();
 
-/* ---------------- HELPERS ---------------- */
 function load(file, fallback = []) {
   if (!fs.existsSync(file)) return fallback;
   return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -37,36 +39,31 @@ function deriveBalances(ledger) {
       balances[tx.from] = (balances[tx.from] || 0) - tx.amount;
       balances[tx.to] = (balances[tx.to] || 0) + tx.amount;
     }
-    if (tx.state === "reversed") {
-      balances[tx.from] = (balances[tx.from] || 0) + tx.amount;
-      balances[tx.to] = (balances[tx.to] || 0) - tx.amount;
-    }
   }
   return balances;
 }
 
-/* ---------------- PAYMENT FLOW ---------------- */
+// ---------- Transaction States ----------
 const STATES = {
   CREATED: "created",
   AUTHORIZED: "authorized",
   PENDING: "pending",
-  COMPLETED: "completed",
-  REVERSED: "reversed"
+  COMPLETED: "completed"
 };
 
 function assertTransition(from, to) {
   const allowed = {
     created: ["authorized"],
-    authorized: ["pending", "reversed"],
-    pending: ["completed", "reversed"],
-    completed: [],
-    reversed: []
+    authorized: ["pending"],
+    pending: ["completed"],
+    completed: []
   };
   if (!allowed[from]?.includes(to)) {
-    throw new Error(`Invalid transition ${from} → ${to}`);
+    throw new Error(`Invalid state transition ${from} → ${to}`);
   }
 }
 
+// ---------- Transaction Logic ----------
 function createTransaction({ from, to, amount, idemKey }) {
   const idempotencyMap = load(IDEMPOTENCY_FILE, {});
   if (idemKey && idempotencyMap[idemKey]) {
@@ -91,36 +88,41 @@ function createTransaction({ from, to, amount, idemKey }) {
   return tx;
 }
 
-function processTransaction(tx) {
+async function processTransaction(tx) {
+  // simulate network delay
+  await new Promise((r) => setTimeout(r, 500));
+
   assertTransition(tx.state, STATES.AUTHORIZED);
   tx.state = STATES.AUTHORIZED;
   tx.timeline.push({ state: STATES.AUTHORIZED, at: now() });
+
+  await new Promise((r) => setTimeout(r, 500));
 
   assertTransition(tx.state, STATES.PENDING);
   tx.state = STATES.PENDING;
   tx.timeline.push({ state: STATES.PENDING, at: now() });
 
-  // Risk logic: amounts over 3000 get automatically reversed
-  else {
-    assertTransition(tx.state, STATES.COMPLETED);
-    tx.state = STATES.COMPLETED;
-    tx.timeline.push({ state: STATES.COMPLETED, at: now() });
-  }
+  await new Promise((r) => setTimeout(r, 500));
+
+  assertTransition(tx.state, STATES.COMPLETED);
+  tx.state = STATES.COMPLETED;
+  tx.timeline.push({ state: STATES.COMPLETED, at: now() });
 
   return tx;
 }
 
-/* ---------------- RUN ---------------- */
-(function run() {
-  const from = "$ThomasHarvey23";
-  const to = "$ThomasHarvey2";
-  const amount = 5000; // fixed as requested
-  const idemKey = defined; // optional idempotency
+// ---------- Run ----------
+async function main() {
+  const args = process.argv.slice(2);
+  const from = args[0] || "$ThomasHarvey23";
+  const to = args[1] || "$ThomasHarvey2";
+  const amount = Number(args[2] || 5000);
+  const idemKey = args[3]; // optional
 
   const ledger = load(LEDGER_FILE, []);
 
   let tx = createTransaction({ from, to, amount, idemKey });
-  tx = processTransaction(tx);
+  tx = await processTransaction(tx);
 
   ledger.push(tx);
   save(LEDGER_FILE, ledger);
@@ -130,4 +132,6 @@ function processTransaction(tx) {
 
   console.log("\n💰 Derived balances:");
   console.log(deriveBalances(ledger));
-})();
+}
+
+main();
